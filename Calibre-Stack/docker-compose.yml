@@ -1,0 +1,57 @@
+# Save this file beside the calibre-stack folder, then run:
+# docker compose up -d
+# Requires Docker Compose and an x86-64 or ARM64 host (64-bit Raspberry Pi OS).
+#
+# All app data lives in these host folders, relative to this file:
+# ./calibre-stack/calibre-main/config
+# ./calibre-stack/calibre-web/config
+# ./calibre-stack/library                  (books + metadata.db)
+# Docker creates missing folders. Ensure the chosen PUID/PGID can write to them.
+# To move the data, replace ./calibre-stack in ALL THREE distinct host paths
+# below with your desired absolute parent path, e.g. /mnt/ssd/appdata/calibre-stack.
+#
+# First use:
+# 1. Open https://HOST-IP:8181 (accept the local self-signed certificate).
+# 2. In Calibre's wizard, use /config/Calibre Library as the library location.
+#    This creates metadata.db in ./calibre-stack/library.
+#    For an existing library, copy its entire contents into that host folder.
+# 3. Open http://HOST-IP:8083 and set Location of Calibre Database to /books.
+#    Default Calibre-Web login: admin / admin123; change it after logging in.
+#
+# Local NAS datasets work as host paths. No network-share environment switch
+# is documented for LinuxServer Calibre-Web; none is added here.
+# Image references and options verified against:
+# https://docs.linuxserver.io/images/docker-calibre/
+# https://docs.linuxserver.io/images/docker-calibre-web/
+
+services:
+  calibre:
+    image: lscr.io/linuxserver/calibre:latest
+    environment:
+      PUID: "1000" # Change to the host user ID that owns the data folders.
+      PGID: "1000" # Change to that user's host group ID.
+      TZ: Europe/London
+      # Optional GUI authentication for a trusted local network:
+      # CUSTOM_USER: calibre
+      # PASSWORD: replace-with-your-password
+    volumes:
+      - "./calibre-stack/calibre-main/config:/config"
+      - "./calibre-stack/library:/config/Calibre Library"
+      - ./calibre-main/ingest_books:/digitalmirror/ingest_books
+    ports:
+      - "8181:8181" # HTTPS Calibre desktop; change only the left number if needed.
+    shm_size: "1gb"
+    restart: unless-stopped
+
+  calibre-web:
+    image: lscr.io/linuxserver/calibre-web:latest
+    environment:
+      PUID: "1000" # Use the same IDs as Calibre.
+      PGID: "1000"
+      TZ: Europe/London
+    volumes:
+      - "./calibre-stack/calibre-web/config:/config"
+      - "./calibre-stack/library:/books"
+    ports:
+      - "8083:8083" # Calibre-Web; change only the left number if needed.
+    restart: unless-stopped
